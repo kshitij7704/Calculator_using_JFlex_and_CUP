@@ -1,10 +1,11 @@
 import java_cup.runtime.*;
+import java.lang.Math;
 
-parser code {
+parser code {:
     void yyerror(String s) {
-        System.err.println("❌ Error: " + s);
+        System.err.println("Error: " + s);
     }
-    
+
     void add_to_history(String expr, double res) {
         if (historyCount < MAX_HISTORY) {
             history[historyCount++] = new HistoryEntry(expr, res);
@@ -15,7 +16,7 @@ parser code {
     }
 
     void show_history() {
-        System.out.println("\n📜 Last " + historyCount + " Calculations:");
+        System.out.println("\nLast " + historyCount + " Calculations:");
         for (int i = 0; i < historyCount; i++) {
             System.out.println("  " + (i + 1) + ". " + history[i].expression + " = " + history[i].result);
         }
@@ -26,21 +27,28 @@ parser code {
         fullExpression.setLength(0);
     }
 
-    void show_banner() {
-        System.out.println("\033[1;36m\n══════════════════════════════════════════");
-        System.out.println("         🚀 ADVANCED CALCULATOR 🚀         ");
-        System.out.println("══════════════════════════════════════════");
-        System.out.println("✔ Supports: +, -, *, /, %, ^, sqrt()");
-        System.out.println("✔ Also supports: sin(), cos(), tan(), PI");
-        System.out.println("✔ Use 'EXIT' to quit");
-        System.out.println("✔ Use 'CLEAR' to reset variables & history");
-        System.out.println("✔ Use 'HISTORY' to see last 10 operations");
-        System.out.println("══════════════════════════════════════════\n\033[0m");
+    static void show_banner() {
+        System.out.println("\n==========================================");
+        System.out.println("         ADVANCED CALCULATOR         ");
+        System.out.println("==========================================");
+        System.out.println("Supports: +, -, *, /, %, ^, sqrt()");
+        System.out.println("Also supports: sin(), cos(), tan(), PI");
+        System.out.println("Use 'EXIT' to quit");
+        System.out.println("Use 'CLEAR' to reset variables & history");
+        System.out.println("Use 'HISTORY' to see last 10 operations");
+        System.out.println("==========================================\n");
+    }
+
+    public static void main(String[] args) throws Exception {
+        show_banner();
+        CalculatorLexer lexer = new CalculatorLexer(new java.io.InputStreamReader(System.in));
+        CalculatorParser p = new CalculatorParser(lexer);
+        p.parse();
     }
 
     private static final int MAX_HISTORY = 10;
     private static StringBuilder fullExpression = new StringBuilder();
-    
+
     private static class HistoryEntry {
         String expression;
         double result;
@@ -54,79 +62,115 @@ parser code {
     private static HistoryEntry[] history = new HistoryEntry[MAX_HISTORY];
     private static int historyCount = 0;
     private static double[] variables = new double[256];
-}
+:}
 
-terminal double NUMBER;
-terminal char VARIABLE;
-terminal EXIT, CLEAR, HISTORY, SQRT, MOD, SIN, COS, TAN, PI, NEWLINE;
-terminal '+' , '-' , '*' , '/' , '^', '=';
+terminal Double NUMBER;
+terminal Character VARIABLE;
+terminal EXIT, CLEAR, HISTORY, SQRT, MOD, SIN, COS, TAN, PI, NEWLINE, UMINUS;
+terminal PLUS, MINUS, TIMES, DIV, MODULO, POWER, EQUALS, LPAREN, RPAREN;
 
-non terminal double calclist, exp;
+non terminal Double calclist, exp;
+
+precedence left PLUS, MINUS;
+precedence left TIMES, DIV, MODULO;
+precedence left POWER;
+precedence left UMINUS;
+
 start with calclist;
 
-calclist ::= 
-    | calclist exp NEWLINE 
-        {: 
-            add_to_history(fullExpression.toString(), $2);
-            System.out.println("➤ Result: " + $2);
-            reset_expression_buffer();
-        :}
-    | calclist VARIABLE '=' exp NEWLINE 
-        {: 
-            variables[$2] = $4;
-            add_to_history(fullExpression.toString(), $4);
-            System.out.println("📌 Variable " + $2 + " = " + $4);
-            reset_expression_buffer();
-        :}
-    | calclist EXIT NEWLINE 
-        {: 
-            System.out.println("🚀 Exiting calculator... Goodbye!");
-            System.exit(0);
-        :}
-    | calclist CLEAR NEWLINE 
-        {: 
-            for (int i = 0; i < 256; i++) variables[i] = 0;
-            historyCount = 0;
-            System.out.println("🗑 All variables and history cleared!");
-        :}
-    | calclist HISTORY NEWLINE 
-        {: show_history(); :}
-    ;
+calclist ::= exp:e NEWLINE
+             {:
+                 add_to_history(fullExpression.toString().trim(), e);
+                 System.out.println("Result: " + e);
+                 reset_expression_buffer();
+             :}
+           | VARIABLE:v EQUALS exp:e NEWLINE
+             {:
+                 variables[v] = e;
+                 add_to_history(fullExpression.toString().trim(), e);
+                 System.out.println("Variable " + v + " = " + e);
+                 reset_expression_buffer();
+             :}
+           | EXIT NEWLINE
+             {:
+                 System.out.println("Exiting calculator... Goodbye!");
+                 System.exit(0);
+             :}
+           | CLEAR NEWLINE
+             {:
+                 for (int i = 0; i < 256; i++) variables[i] = 0;
+                 historyCount = 0;
+                 System.out.println("All variables and history cleared!");
+                 reset_expression_buffer();
+             :}
+           | HISTORY NEWLINE
+             {:
+                 show_history();
+                 reset_expression_buffer();
+             :}
+           | NEWLINE
+             {:
+                 reset_expression_buffer();
+             :}
+           | calclist:c /* Allow multiple commands */
+             {:
+                 RESULT = c;
+             :}
+           ;
 
-exp ::= 
-    NUMBER         {: RESULT = $1; :}
-    | PI          {: RESULT = Math.PI; :}
-    | VARIABLE    {: 
-        RESULT = variables[$1];
-        System.out.println("📌 Variable " + $1 + " = " + RESULT);
-    :}
-    | exp '+' exp {: RESULT = $1 + $3; :}
-    | exp '-' exp {: RESULT = $1 - $3; :}
-    | exp '*' exp {: RESULT = $1 * $3; :}
-    | exp '/' exp 
-        {: 
-            if ($3 == 0) {
+exp ::= NUMBER:n
+        {: RESULT = n; :}
+      | PI
+        {: RESULT = Math.PI; :}
+      | VARIABLE:v
+        {:
+            RESULT = variables[v];
+            System.out.println("Variable " + v + " = " + RESULT);
+        :}
+      | exp:e1 PLUS exp:e2
+        {: RESULT = e1 + e2; :}
+      | exp:e1 MINUS exp:e2
+        {: RESULT = e1 - e2; :}
+      | exp:e1 TIMES exp:e2
+        {: RESULT = e1 * e2; :}
+      | exp:e1 DIV exp:e2
+        {:
+            if (e2 == 0) {
                 yyerror("Division by zero!");
-                RESULT = 0;
+                RESULT = 0.0;
             } else {
-                RESULT = $1 / $3;
+                RESULT = e1 / e2;
             }
         :}
-    | exp MOD exp 
-        {: 
-            if ($3 == 0) {
+      | exp:e1 MODULO exp:e2
+        {:
+            if (e2 == 0) {
                 yyerror("Modulus by zero!");
-                RESULT = 0;
+                RESULT = 0.0;
             } else {
-                RESULT = $1 % $3;
+                RESULT = e1 % e2;
             }
         :}
-    | exp '^' exp {: RESULT = Math.pow($1, $3); :}
-    | SIN '(' exp ')' {: RESULT = Math.sin($3); :}
-    | COS '(' exp ')' {: RESULT = Math.cos($3); :}
-    | TAN '(' exp ')' {: RESULT = Math.tan($3); :}
-    | SQRT '(' exp ')' 
-        {: RESULT = Math.sqrt($3 < 0 ? yyerror("Cannot take sqrt of negative number!") : $3); :}
-    | '-' exp %prec UMINUS {: RESULT = -$2; :}
-    | '(' exp ')' {: RESULT = $2; :}
-    ;
+      | exp:e1 POWER exp:e2
+        {: RESULT = Math.pow(e1, e2); :}
+      | SIN LPAREN exp:e RPAREN
+        {: RESULT = Math.sin(e); :}
+      | COS LPAREN exp:e RPAREN
+        {: RESULT = Math.cos(e); :}
+      | TAN LPAREN exp:e RPAREN
+        {: RESULT = Math.tan(e); :}
+      | SQRT LPAREN exp:e RPAREN
+        {:
+            if (e < 0) {
+                yyerror("Cannot take sqrt of negative number!");
+                RESULT = 0.0;
+            } else {
+                RESULT = Math.sqrt(e);
+            }
+        :}
+      | MINUS exp:e
+        {: RESULT = -e; :}
+        %prec UMINUS
+      | LPAREN exp:e RPAREN
+        {: RESULT = e; :}
+      ;

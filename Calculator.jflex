@@ -10,18 +10,27 @@ import java_cup.runtime.*;
 %public
 
 %{
+    // Make fullExpression accessible to the parser
+    public static StringBuilder fullExpression = new StringBuilder();
+
     private void add_to_expression(String text) {
-        fullExpression.append(text).append(" ");
+        fullExpression.append(text);
     }
-    
-    private StringBuilder fullExpression = new StringBuilder();
+
+    private Symbol symbol(int type) {
+        return new Symbol(type);
+    }
+
+    private Symbol symbol(int type, Object value) {
+        return new Symbol(type, value);
+    }
 %}
 
 NUMBER      = [0-9]+(\.[0-9]+)?
-PI          = "PI"
-EXIT        = "EXIT"
-CLEAR       = "CLEAR"
-HISTORY     = "HISTORY"
+PI          = "PI" | "pi"
+EXIT        = "EXIT" | "exit"
+CLEAR       = "CLEAR" | "clear"
+HISTORY     = "HISTORY" | "history"
 SQRT        = "sqrt"
 MOD         = "mod"
 SIN         = "sin"
@@ -29,25 +38,31 @@ COS         = "cos"
 TAN         = "tan"
 VARIABLE    = [a-zA-Z]
 MODULO      = "%"
-OPERATORS   = [+\-*/^=()]
-NEWLINE     = \n
-WHITESPACE  = [\t ]+
+NEWLINE     = \n|\r\n
+WHITESPACE  = [ \t]+
 
 %%
 
-{NUMBER}        { add_to_expression(yytext()); return new Symbol(sym.NUMBER, Double.parseDouble(yytext())); }
-{PI}            { add_to_expression(yytext()); return new Symbol(sym.PI); }
-{EXIT}          { return new Symbol(sym.EXIT); }
-{CLEAR}         { return new Symbol(sym.CLEAR); }
-{HISTORY}       { return new Symbol(sym.HISTORY); }
-{SQRT}          { add_to_expression(yytext()); return new Symbol(sym.SQRT); }
-{MOD}           { add_to_expression(yytext()); return new Symbol(sym.MOD); }
-{SIN}           { add_to_expression(yytext()); return new Symbol(sym.SIN); }
-{COS}           { add_to_expression(yytext()); return new Symbol(sym.COS); }
-{TAN}           { add_to_expression(yytext()); return new Symbol(sym.TAN); }
-{VARIABLE}      { add_to_expression(yytext()); return new Symbol(sym.VARIABLE, yytext().charAt(0)); }
-{MODULO}        { add_to_expression(yytext()); return new Symbol(sym.MOD); }
-{OPERATORS}     { add_to_expression(yytext()); return new Symbol(yytext().charAt(0)); }
-{NEWLINE}       { return new Symbol(sym.NEWLINE); }
-{WHITESPACE}    { /* Ignore */ }
-.               { System.err.println("Invalid character: " + yytext()); }
+{NUMBER}        { add_to_expression(yytext()); return symbol(sym.NUMBER, Double.parseDouble(yytext())); }
+{PI}            { add_to_expression(yytext()); return symbol(sym.PI); }
+{EXIT}          { return symbol(sym.EXIT); }
+{CLEAR}         { return symbol(sym.CLEAR); }
+{HISTORY}       { return symbol(sym.HISTORY); }
+{SQRT}          { add_to_expression(yytext()); return symbol(sym.SQRT); }
+{MOD}           { add_to_expression(yytext()); return symbol(sym.MOD); }
+{SIN}           { add_to_expression(yytext()); return symbol(sym.SIN); }
+{COS}           { add_to_expression(yytext()); return symbol(sym.COS); }
+{TAN}           { add_to_expression(yytext()); return symbol(sym.TAN); }
+{VARIABLE}      { add_to_expression(yytext()); return symbol(sym.VARIABLE, yytext().charAt(0)); }
+{MODULO}        { add_to_expression(yytext()); return symbol(sym.MODULO); }
+"+"             { add_to_expression(yytext()); return symbol(sym.PLUS); }
+"-"             { add_to_expression(yytext()); return symbol(sym.MINUS); }
+"*"             { add_to_expression(yytext()); return symbol(sym.TIMES); }
+"/"             { add_to_expression(yytext()); return symbol(sym.DIV); }
+"^"             { add_to_expression(yytext()); return symbol(sym.POWER); }
+"="             { add_to_expression(yytext()); return symbol(sym.EQUALS); }
+"("             { add_to_expression(yytext()); return symbol(sym.LPAREN); }
+")"             { add_to_expression(yytext()); return symbol(sym.RPAREN); }
+{NEWLINE}       { return symbol(sym.NEWLINE); }
+{WHITESPACE}    { add_to_expression(" "); /* Keep spacing in expression */ }
+.               { System.err.println("Invalid character at line " + yyline + ", column " + yycolumn + ": " + yytext()); }
