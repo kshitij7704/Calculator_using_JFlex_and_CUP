@@ -1,0 +1,33 @@
+package com.example;
+
+import java_cup.runtime.*;
+
+// Remove the parser code section since CUP already generates the constructor
+/* parser code {:
+    public Parser(java_cup.runtime.Scanner s) {
+        super(s);
+    }
+:} */
+
+terminal Integer NUMBER;
+terminal PLUS, MINUS, TIMES, DIVIDE, LPAREN, RPAREN;
+non terminal Integer expression, term, factor;
+
+precedence left PLUS, MINUS;
+precedence left TIMES, DIVIDE;
+
+start with expression;
+
+expression ::= term:t                 {: RESULT = t; :}
+             | expression:e PLUS term:t   {: RESULT = e + t; :}
+             | expression:e MINUS term:t  {: RESULT = e - t; :}
+;
+
+term ::= factor:f                     {: RESULT = f; :}
+       | term:t TIMES factor:f        {: RESULT = t * f; :}
+       | term:t DIVIDE factor:f       {: RESULT = t / f; :}
+;
+
+factor ::= NUMBER:n                   {: RESULT = n; :}
+         | LPAREN expression:e RPAREN {: RESULT = e; :}
+;
